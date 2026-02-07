@@ -38,8 +38,8 @@ def preprocess(data, args):
     data.conds_feat = data.conds_feat.expand(data.x.shape[0], -1)
     data.inlet_vel_direction = data.inlet_vel_direction.repeat(data.x.shape[0], 1)
 
-    # Use constant node features
-    data.node_attr = torch.ones((data.x.shape[0], 1)).float()
+    # Use invariant node features
+    data.node_attr = data.conds_feat
 
     return data
 

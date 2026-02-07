@@ -75,15 +75,15 @@ The main training script is `main.py`.
     - **ShapeNetCar**: `3d_snc_press`
 - `--aug_type`: Rotation augmentation type.
     - `canonical`: No rotation. (Canonical)
-    - `discrete`: Random $O$-group rotations.
-    - `arbitrary`: Random $SE(3)$-group rotations.
+    - `discrete`: Random discrete rotations.
+    - `arbitrary`: Random continuous rotations.
 - `--batch_size`: Batch size (default: 1)
 - `--hidden_dim`: Hidden dimension size (default: 64)
 - `--epochs`: Number of training epochs (default: 100)
-- `--gno_radius`: GNO radius (default: 0.1)
+- `--gno_radius`: GNO radius (default: Ahmedbody 0.1, ShapeNetCar 0.15)
 - `--fno_n_layers`: Number of FNO layers
 - `--fno_n_mode`: Number of FNO modes
-- `--mesh_subsample_rate`: Subsampling rate for training mesh (default: 10 -> 1/10 nodes)
+- `--mesh_subsample_rate`: Subsampling rate for training mesh (default: 5 -> 1/5 nodes)
 - `--mesh_subsample_rate_valid`: Subsampling rate for validation/test mesh (default: 1)
 
 ### Training Examples
