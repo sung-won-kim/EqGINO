@@ -75,8 +75,8 @@ The main training script is `main.py`.
     - **ShapeNetCar**: `3d_snc_press`
 - `--aug_type`: Rotation augmentation type.
     - `canonical`: No rotation. (Canonical)
-    - `discrete`: Random $O$-group rotations.
-    - `arbitrary`: Random $SE(3)$-group rotations.
+    - `discrete`: Random discrete rotations.
+    - `arbitrary`: Random arbitrary rotations.
 - `--batch_size`: Batch size (default: 1)
 - `--hidden_dim`: Hidden dimension size (default: 64)
 - `--epochs`: Number of training epochs (default: 100)
