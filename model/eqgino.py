@@ -140,8 +140,6 @@ class EQGINO(pl.LightningModule):
             sampling_rate = 1/self.args.mesh_subsample_rate
             n_nodes = coord.size(0)
             n_samples = int(n_nodes * sampling_rate)
-            # Fixed random subsampling for reproducibility
-            torch.manual_seed(self.args.seed)
             subsampled_node_idx = torch.randperm(n_nodes, device=coord.device)[:n_samples]
 
             coord = coord[subsampled_node_idx,:]
@@ -156,8 +154,6 @@ class EQGINO(pl.LightningModule):
             sampling_rate = 1/self.args.mesh_subsample_rate_valid
             n_nodes = coord.size(0)
             n_samples = int(n_nodes * sampling_rate)
-            # Fixed random subsampling for reproducibility
-            torch.manual_seed(self.args.seed)
             subsampled_node_idx = torch.randperm(n_nodes, device=coord.device)[:n_samples]
 
             coord = coord[subsampled_node_idx,:]

@@ -158,7 +158,7 @@ if __name__ == '__main__':
         parser.add_argument("--gno_radius", type=float, default=0.1)
         parser.add_argument("--fno_n_layers", type=int, default=4)
         parser.add_argument("--fno_n_mode", type=int, default=40)
-        parser.add_argument("--mesh_subsample_rate", type=float, default=5) 
+        parser.add_argument("--mesh_subsample_rate", type=float, default=4) 
         parser.add_argument("--mesh_subsample_rate_valid", type=float, default=1) 
         parser.add_argument("--num_workers", type=int, default=5)
         parser.add_argument("--num_groups", type=int, default=4)
