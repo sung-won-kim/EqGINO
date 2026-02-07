@@ -1,0 +1,15 @@
+# Data
+data/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Weights and Biases (logging)
+wandb/
+
+# Shell scripts
+*.sh
+
+# Training artifacts (checkpoints)
+best_models/
