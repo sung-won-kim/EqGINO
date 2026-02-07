@@ -76,7 +76,7 @@ The main training script is `main.py`.
 - `--aug_type`: Rotation augmentation type.
     - `canonical`: No rotation. (Canonical)
     - `discrete`: Random discrete rotations.
-    - `arbitrary`: Random continuous rotations.
+    - `arbitrary`: Random arbitrary rotations.
 - `--batch_size`: Batch size (default: 1)
 - `--hidden_dim`: Hidden dimension size (default: 64)
 - `--epochs`: Number of training epochs (default: 100)
