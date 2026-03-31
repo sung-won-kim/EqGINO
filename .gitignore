@@ -1,5 +1,5 @@
-# Data
-data/
+# Data (root only)
+/data/
 
 # Python cache
 __pycache__/
