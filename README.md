@@ -17,13 +17,17 @@ The code has been tested with the following environment:
 
 | Package | Version |
 |---------|---------|
-| `torch` | 2.5.1+cu118 |
+| `torch` | 2.5.1+cu121 |
 | `torch-geometric` | 2.6.1 |
-| `neuraloperator` | 1.0.2 |
-| `lightning` | 2.5.0.post0 |
-| `trimesh` | 4.7.1 |
+| `lightning` | 2.5.2 |
+| `trimesh` | 4.7.3 |
 | `scikit-learn` | 1.6.1 |
 | `numpy` | 2.1.2 |
+| `tensorly` | 0.9.0 |
+| `open3d` | 0.19.0 |
+| `wandb` | 0.21.1 |
+
+> **Note:** `neuralop` is included locally in this repository (modified for equivariance), so you do NOT need to install it separately.
 
 ### Installation
 
@@ -33,11 +37,16 @@ You can create a conda environment and install the dependencies:
 conda create -n eqgino python=3.10
 conda activate eqgino
 
-# Install PyTorch (adjust cuda version if needed)
-pip install torch==2.5.1+cu118 --index-url https://download.pytorch.org/whl/cu118
+# 1. Install PyTorch first (adjust CUDA version if needed)
+pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 
-# Install other dependencies
-pip install torch-geometric neuraloperator lightning wandb trimesh scikit-learn numpy
+# 2. Install PyG extensions (must match torch + CUDA version)
+pip install torch-scatter torch-sparse torch-cluster \
+    -f https://data.pyg.org/whl/torch-2.5.1+cu121.html
+pip install torch-geometric==2.6.1
+
+# 3. Install remaining dependencies
+pip install -r requirements.txt
 ```
 
 ## Datasets
@@ -60,42 +69,76 @@ data/
     shapenetcar/
         train/
         test/
+    deepjeb/
+        train/
+        test/
 ```
 
 ## Usage
 
-The main training script is `main.py`.
+The main training script is `main.py`. Each dataset has a YAML config file under `configs/` with pre-tuned hyperparameters.
+
+### Quick Start
+
+```bash
+# Train with a config file (recommended)
+python main.py --config configs/ahmedbody.yaml --devices 0
+```
+
+### Config Files
+
+| Config | Dataset | Target |
+|--------|---------|--------|
+| `configs/ahmedbody.yaml` | AhmedBody | `3d_ab_wss` |
+| `configs/shapenetcar.yaml` | ShapeNetCar | `3d_snc_press` |
+| `configs/deepjeb_deflection.yaml` | DeepJeb | `3d_dj_deflection` |
+| `configs/deepjeb_stress.yaml` | DeepJeb | `3d_dj_stress` |
+
+Each config contains dataset-specific hyperparameters (model architecture, learning rate, GNO radius, etc.). See `configs/*.yaml` for details.
 
 ### Arguments
 
-- `--model`: Model architecture (default: `eqgino`)
-- `--data_fname`: Dataset name. Choices: `['ahmedbody', 'shapenetcar']`
-- `--tgt_y`: Target variable to predict.
-    - **AhmedBody**: `3d_ab_wss`, `3d_ab_p`, `3d_ab_k`, `3d_ab_omega`, `3d_ab_nut`
-    - **ShapeNetCar**: `3d_snc_press`
+CLI arguments for controlling the training run:
+
+- `--config`: Path to YAML config file (required)
+- `--model`: Model architecture. Choices: `eqgino`, `gino` (default: `eqgino`)
+- `--devices`: GPU device IDs (e.g., `0` or `0,1`)
+- `--seed`: Random seed (default: 0)
+- `--num_seed`: Number of seeds to run (default: 1)
 - `--aug_type`: Rotation augmentation type.
-    - `canonical`: No rotation. (Canonical)
-    - `discrete`: Random discrete rotations.
-    - `arbitrary`: Random arbitrary rotations.
-- `--batch_size`: Batch size (default: 1)
-- `--hidden_dim`: Hidden dimension size (default: 64)
-- `--epochs`: Number of training epochs (default: 100)
-- `--gno_radius`: GNO radius (default: Ahmedbody 0.1, ShapeNetCar 0.15)
-- `--fno_n_layers`: Number of FNO layers
-- `--fno_n_mode`: Number of FNO modes
-- `--mesh_subsample_rate`: Subsampling rate for training mesh (default: 5 -> 1/5 nodes)
-- `--mesh_subsample_rate_valid`: Subsampling rate for validation/test mesh (default: 1)
+    - `canonical`: No rotation (default)
+    - `discrete`: Random 90-degree rotations
+    - `arbitrary`: Random continuous rotations
+- `--num_workers`: DataLoader workers (default: 0)
+- `--val_interval`: Validation every N epochs (default: 1)
+- `--log_name`: Custom W&B run name
+- `--summary`: W&B project prefix
 
 ### Training Examples
 
-**1. Train on Ahmed Body for Turbulent Kinetic Energy**
+**AhmedBody - Wall Shear Stress**
 ```bash
-python main.py --data_fname ahmedbody --tgt_y 3d_ab_k
+python main.py --config configs/ahmedbody.yaml --devices 0
 ```
 
-**2. Train on Ahmed Body for Wall Shear Stress (WSS) with Arbitrary Rotation**
+**AhmedBody - Wall Shear Stress with Arbitrary Rotation**
 ```bash
-python main.py --data_fname ahmedbody --tgt_y 3d_ab_wss --aug_type arbitrary
+python main.py --config configs/ahmedbody.yaml --aug_type arbitrary --devices 0
+```
+
+**ShapeNetCar - Surface Pressure**
+```bash
+python main.py --config configs/shapenetcar.yaml --devices 0
+```
+
+**DeepJeb - Deflection**
+```bash
+python main.py --config configs/deepjeb_deflection.yaml --devices 0
+```
+
+**DeepJeb - Stress**
+```bash
+python main.py --config configs/deepjeb_stress.yaml --devices 0
 ```
 
 ## Acknowledgement
