@@ -57,22 +57,79 @@ Original dataset sourced from [NVIDIA NGC](https://catalog.ngc.nvidia.com/orgs/n
 ### ShapeNetCar
 Original dataset sourced from [Zenodo](https://zenodo.org/records/13936501).
 
-### Preprocessed Data
-The preprocessed versions of the datasets used in this project are available for download here: [Google Drive Link](https://drive.google.com/file/d/1iObwzvIyBIg-FAAdmZK8etY0Ccv7-9EL/view?usp=sharing)
+### Download
 
-After downloading, please place the `data` folder in the same directory as `main.py` with the following structure:
+**AhmedBody & ShapeNetCar:** Download the preprocessed datasets from [Google Drive](https://drive.google.com/file/d/1iObwzvIyBIg-FAAdmZK8etY0Ccv7-9EL/view?usp=sharing) and extract the `data` folder in the same directory as `main.py`.
+
+**DeepJeb:** Download separately from [Google Drive](https://drive.google.com/file/d/1RGJi-C0gAdmi0kUTX6Y-jlBEyPPYciAl/view?usp=sharing) and place it under the `data/` folder.
+
+After downloading, the directory structure should look like:
 ```
 data/
     ahmedbody/
-        train/
-        test/
+        train/    # 458 cases (case{id}.pkl)
+        test/     # 50 cases
     shapenetcar/
-        train/
-        test/
+        train/    # 500 cases ({id}.pkl)
+        test/     # 100 cases
     deepjeb/
-        train/
-        test/
+        train/    # 1973 cases ({id}.pkl)
+        test/     # 162 cases
 ```
+
+### Data Structure
+
+Each `.pkl` file is a PyG `Data` object. Below are the key fields for each dataset.
+
+#### AhmedBody (`case{id}.pkl`)
+
+| Field | Shape | Description |
+|-------|-------|-------------|
+| `x` | [N, 3] | Mesh point coordinates |
+| `edge_index` | [2, E] | Graph edge connectivity |
+| `faces` | [F, 3] | Triangle face indices |
+| `conds_feat` | [1, 8] | Conditional features (Length, Width, Height, GroundClearance, SlantAngle, FilletRadius, Velocity, Re) |
+| `inlet_vel_direction` | [1, 3] | Inlet velocity unit vector |
+| `y_p` | [N, 1] | Pressure |
+| `y_U` | [N, 3] | Velocity |
+| `y_wallShearStress` | [N, 3] | Wall shear stress (default target) |
+| `y_k` | [N, 1] | Turbulent kinetic energy |
+| `y_omega` | [N, 1] | Specific dissipation rate |
+| `y_nut` | [N, 1] | Turbulent viscosity |
+| `y_yPlus` | [N, 1] | Y+ value |
+
+#### ShapeNetCar (`{id}.pkl`)
+
+| Field | Shape | Description |
+|-------|-------|-------------|
+| `x` | [N, 3] | Mesh point coordinates |
+| `edge_index` | [2, E] | Graph edge connectivity |
+| `faces` | [F, 3] | Triangle face indices |
+| `vertex_normals` | [N, 3] | Surface normals at each vertex |
+| `conds_feat` | [1, C] | Conditional features |
+| `inlet_vel_direction` | [1, 3] | Inlet velocity unit vector |
+| `y` | [N, 1] | Surface pressure (target) |
+
+#### DeepJeb (`{id}.pkl`)
+
+Each sample contains 4 load cases: `hor` (horizontal), `ver` (vertical), `dia` (diagonal), `tor` (torsion).
+
+| Field | Shape | Description |
+|-------|-------|-------------|
+| `x` | [N, 3] | Surface mesh node coordinates |
+| `edge_index` | [2, E] | Graph edge connectivity |
+| `faces` | [F, 3] | Triangle face indices |
+| `surface_normals` | [N, 3] | Surface normal vectors |
+| `node_attr` | [N, C] | Node attributes (distance to fixed/load points + load features) |
+| `conds_feat` | [N, 1] | Conditional features (volume, mass) |
+| `{load}_force_magnitude` | scalar | Force magnitude per load case |
+| `{load}_force_direction` | [1, 3] | Force direction per load case |
+| `y_{load}_x_disp` | [N, 1] | X displacement (deflection target) |
+| `y_{load}_y_disp` | [N, 1] | Y displacement (deflection target) |
+| `y_{load}_z_disp` | [N, 1] | Z displacement (deflection target) |
+| `y_{load}_stress` | [N, 1] | Von Mises stress (stress target) |
+
+> `{load}` ∈ {`hor`, `ver`, `dia`, `tor`}. N = number of surface nodes, E = number of edges, F = number of faces.
 
 ## Usage
 
