@@ -1,0 +1,28 @@
+# AhmedBody dataset configuration
+data_fname: ahmedbody
+
+# Target variables (choose one)
+# 3d_ab_wss: Wall Shear Stress (vector, 3dim)
+# 3d_ab_p: Pressure (scalar)
+# 3d_ab_k: Turbulent Kinetic Energy (scalar)
+# 3d_ab_omega: Specific Dissipation Rate (scalar, log-scaled)
+# 3d_ab_nut: Turbulent Viscosity (scalar, log-scaled)
+tgt_y: 3d_ab_wss
+
+# Model
+hidden_dim: 64
+fno_n_mode: 32
+fno_n_layers: 4
+num_groups: 2
+gno_radius: 0.1
+
+# Coordinate normalization
+unit_sphere_normalize: true
+latent_grid_range: [-1, 1]
+
+# Training
+batch_size: 1
+mesh_subsample_rate: 1
+mesh_subsample_rate_valid: 1
+lr: 0.0005
+epochs: 100

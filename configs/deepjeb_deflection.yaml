@@ -1,0 +1,25 @@
+# DeepJeb Deflection dataset configuration
+data_fname: deepjeb
+
+# Target variables
+# 3d_dj_deflection: Displacement vector (3dim) for 4 load types (hor, ver, dia, tor)
+tgt_y: 3d_dj_deflection
+
+# Model
+hidden_dim: 64
+fno_n_mode: 32
+fno_n_layers: 4
+num_groups: 2
+gno_radius: 10
+
+# Coordinate normalization
+# DeepJeb does NOT use unit sphere normalization (coords are in original scale)
+unit_sphere_normalize: false
+latent_grid_range: [-100, 100]
+
+# Training
+batch_size: 1
+mesh_subsample_rate: 1
+mesh_subsample_rate_valid: 1
+lr: 0.0005
+epochs: 100

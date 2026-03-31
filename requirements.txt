@@ -1,0 +1,29 @@
+# ──────────────────────────────────────────────
+# EqGINO - Requirements
+# Tested with Python 3.10, CUDA 12.1
+# ──────────────────────────────────────────────
+
+# 1) Install PyTorch FIRST (must match your CUDA version)
+#    pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+torch==2.5.1
+
+# 2) Install PyG extensions AFTER torch
+#    pip install torch-scatter torch-sparse torch-cluster -f https://data.pyg.org/whl/torch-2.5.1+cu121.html
+torch-scatter==2.1.2
+torch-sparse==0.6.18
+torch-cluster==1.6.3
+torch-geometric==2.6.1
+
+# 3) Core dependencies
+lightning==2.5.2
+numpy==2.1.2
+scikit-learn==1.6.1
+matplotlib==3.10.5
+trimesh==4.7.3
+wandb==0.21.1
+
+# 4) Neural operator dependencies (neuralop is included locally)
+tensorly==0.9.0
+tensorly-torch==0.5.0
+opt-einsum==3.4.0
+open3d==0.19.0

@@ -1,0 +1,24 @@
+# ShapeNetCar dataset configuration
+data_fname: shapenetcar
+
+# Target variables (choose one)
+# 3d_snc_press: Surface Pressure (scalar)
+tgt_y: 3d_snc_press
+
+# Model
+hidden_dim: 64
+fno_n_mode: 32
+fno_n_layers: 4
+num_groups: 2
+gno_radius: 0.15
+
+# Coordinate normalization
+unit_sphere_normalize: true
+latent_grid_range: [-1, 1]
+
+# Training
+batch_size: 1
+mesh_subsample_rate: 1
+mesh_subsample_rate_valid: 1
+lr: 0.0005
+epochs: 100
