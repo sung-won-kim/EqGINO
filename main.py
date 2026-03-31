@@ -1,5 +1,6 @@
 import os
 import time
+import yaml
 import torch
 import wandb
 import pickle
@@ -142,30 +143,26 @@ if __name__ == '__main__':
         parser = argparse.ArgumentParser()
         timestr = time.strftime("%m%d")
 
+        # CLI-only arguments
+        parser.add_argument("--config", type=str, default='configs/deepjeb_deflection.yaml', help='Path to YAML config file')
         parser.add_argument("--model", type=str, default='eqgino')
-        parser.add_argument("--batch_size", type=int, default=1)
-        parser.add_argument("--hidden_dim", type=int, default=64)
-        parser.add_argument("--epochs", type=int, default=100)
-        parser.add_argument("--devices", type=list_of_ints, default='0')
-        parser.add_argument("--lr", type=float, default=0.0005)
-        parser.add_argument("--val_interval", type=int, default=1)
+        parser.add_argument("--devices", type=list_of_ints, default='4')
         parser.add_argument("--summary", type=str, default=f'{timestr}')
-        parser.add_argument("--data_fname", type=str, default='ahmedbody', choices=['ahmedbody', 'shapenetcar'])
         parser.add_argument("--seed", type=int, default=0)
         parser.add_argument("--num_seed", type=int, default=1)
-        parser.add_argument("--tgt_y", type=str, default='3d_ab_wss', choices=['3d_ab_k', '3d_ab_omega', '3d_ab_nut', '3d_ab_wss', '3d_ab_p', '3d_snc_press'])
-        parser.add_argument("--log_name", type=str, default=None) 
-        parser.add_argument("--gno_radius", type=float, default=0.1)
-        parser.add_argument("--fno_n_layers", type=int, default=4)
-        parser.add_argument("--fno_n_mode", type=int, default=40)
-        parser.add_argument("--mesh_subsample_rate", type=float, default=4) 
-        parser.add_argument("--mesh_subsample_rate_valid", type=float, default=1) 
-        parser.add_argument("--num_workers", type=int, default=5)
-        parser.add_argument("--num_groups", type=int, default=4)
+        parser.add_argument("--log_name", type=str, default=None)
+        parser.add_argument("--num_workers", type=int, default=0)
+        parser.add_argument("--val_interval", type=int, default=1)
         parser.add_argument("--aug_type", type=str, default='canonical', choices=['canonical', 'discrete', 'arbitrary'])
 
         return parser.parse_known_args()
 
     args, unknown = parse_args()
+
+    # Load config file (dataset-specific hyperparameters)
+    with open(args.config) as f:
+        cfg = yaml.safe_load(f)
+    for k, v in cfg.items():
+        setattr(args, k, v)
 
     main(args)
