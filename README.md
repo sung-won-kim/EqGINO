@@ -101,7 +101,7 @@ Each config contains dataset-specific hyperparameters (model architecture, learn
 CLI arguments for controlling the training run:
 
 - `--config`: Path to YAML config file (required)
-- `--model`: Model architecture. Choices: `eqgino`, `gino` (default: `eqgino`)
+- `--model`: Model architecture. Choices: `eqgino` (default: `eqgino`)
 - `--devices`: GPU device IDs (e.g., `0` or `0,1`)
 - `--seed`: Random seed (default: 0)
 - `--num_seed`: Number of seeds to run (default: 1)
