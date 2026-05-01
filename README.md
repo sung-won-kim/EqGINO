@@ -1,9 +1,16 @@
-# EqGINO
+# EqGINO: Equivariant Geometry-Informed Fourier Neural Operator for 3D PDEs
 
-Official code repository for **EqGINO** (Equivariant Geometry-Informed Fourier Neural Operator for 3D PDEs).
+<p align="center">   
+    <a href="https://pytorch.org/" alt="PyTorch">
+      <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?e&logo=PyTorch&logoColor=white" /></a>
+    <a href="https://iclr.cc" alt="Conference">
+        <img src="https://img.shields.io/badge/ICML'26-brightgreen" /></a>
+    <a href="https://iclr.cc" alt="Conference">
+        <img src="https://img.shields.io/badge/ICLR'26 AI&PDE Workshop-brightgreen" /></a>
+<!--     <img src="https://img.shields.io/pypi/l/torch-rechub"> -->
+</p>
 
-This repository contains the implementation of EqGINO, designed for learning 3D physics simulations with equivariance.
-
+Official code repository for **EqGINO** (Equivariant Geometry-Informed Fourier Neural Operator for 3D PDEs) at ICML 2026.
 
 
 ## Requirements
@@ -61,8 +68,6 @@ Original dataset sourced from [Zenodo](https://zenodo.org/records/13936501).
 
 **AhmedBody & ShapeNetCar:** Download the preprocessed datasets from [Google Drive](https://drive.google.com/file/d/1iObwzvIyBIg-FAAdmZK8etY0Ccv7-9EL/view?usp=sharing) and extract the `data` folder in the same directory as `main.py`.
 
-**DeepJeb:** Download separately from [Google Drive](https://drive.google.com/file/d/1RGJi-C0gAdmi0kUTX6Y-jlBEyPPYciAl/view?usp=sharing) and place it under the `data/` folder.
-
 After downloading, the directory structure should look like:
 ```
 data/
@@ -72,9 +77,6 @@ data/
     shapenetcar/
         train/    # 500 cases ({id}.pkl)
         test/     # 100 cases
-    deepjeb/
-        train/    # 1973 cases ({id}.pkl)
-        test/     # 162 cases
 ```
 
 ### Data Structure
@@ -110,27 +112,6 @@ Each `.pkl` file is a PyG `Data` object. Below are the key fields for each datas
 | `inlet_vel_direction` | [1, 3] | Inlet velocity unit vector |
 | `y` | [N, 1] | Surface pressure (target) |
 
-#### DeepJeb (`{id}.pkl`)
-
-Each sample contains 4 load cases: `hor` (horizontal), `ver` (vertical), `dia` (diagonal), `tor` (torsion).
-
-| Field | Shape | Description |
-|-------|-------|-------------|
-| `x` | [N, 3] | Surface mesh node coordinates |
-| `edge_index` | [2, E] | Graph edge connectivity |
-| `faces` | [F, 3] | Triangle face indices |
-| `surface_normals` | [N, 3] | Surface normal vectors |
-| `node_attr` | [N, C] | Node attributes (distance to fixed/load points + load features) |
-| `conds_feat` | [N, 1] | Conditional features (volume, mass) |
-| `{load}_force_magnitude` | scalar | Force magnitude per load case |
-| `{load}_force_direction` | [1, 3] | Force direction per load case |
-| `y_{load}_x_disp` | [N, 1] | X displacement (deflection target) |
-| `y_{load}_y_disp` | [N, 1] | Y displacement (deflection target) |
-| `y_{load}_z_disp` | [N, 1] | Z displacement (deflection target) |
-| `y_{load}_stress` | [N, 1] | Von Mises stress (stress target) |
-
-> `{load}` ∈ {`hor`, `ver`, `dia`, `tor`}. N = number of surface nodes, E = number of edges, F = number of faces.
-
 ## Usage
 
 The main training script is `main.py`. Each dataset has a YAML config file under `configs/` with pre-tuned hyperparameters.
@@ -148,8 +129,6 @@ python main.py --config configs/ahmedbody.yaml --devices 0
 |--------|---------|--------|
 | `configs/ahmedbody.yaml` | AhmedBody | `3d_ab_wss` |
 | `configs/shapenetcar.yaml` | ShapeNetCar | `3d_snc_press` |
-| `configs/deepjeb_deflection.yaml` | DeepJeb | `3d_dj_deflection` |
-| `configs/deepjeb_stress.yaml` | DeepJeb | `3d_dj_stress` |
 
 Each config contains dataset-specific hyperparameters (model architecture, learning rate, GNO radius, etc.). See `configs/*.yaml` for details.
 
@@ -188,16 +167,7 @@ python main.py --config configs/ahmedbody.yaml --aug_type arbitrary --devices 0
 python main.py --config configs/shapenetcar.yaml --devices 0
 ```
 
-**DeepJeb - Deflection**
-```bash
-python main.py --config configs/deepjeb_deflection.yaml --devices 0
-```
-
-**DeepJeb - Stress**
-```bash
-python main.py --config configs/deepjeb_stress.yaml --devices 0
-```
-
 ## Acknowledgement
 
 This project utilizes code from the [neuraloperator](https://github.com/neuraloperator/neuraloperator) library. We have modified specific components to implement the equivariant features required for EqGINO. We thank the authors of `neuralop` for their open-source contribution.
+
