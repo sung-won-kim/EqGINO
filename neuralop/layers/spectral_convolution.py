@@ -582,7 +582,25 @@ class EqSpectralConv(SpectralConv):
         
         batchsize, channels, *mode_sizes = x.shape
         fft_dims_sizes = x_fft.shape[-3:]
-        
+
+        # Fast path: when every dim keeps all modes (n_mode >= fft_size, which
+        # holds for all shipped configs where grid resolution == n_modes), the
+        # symmetric gather/scatter is an identity copy. Skipping it avoids two
+        # full-spectrum copies + a zero-init complex grid per call, with no
+        # change to the result.
+        keep_all = (output_shape is None) and all(
+            n_mode >= fft_dims_sizes[dim] for dim, n_mode in enumerate(self.n_modes)
+        )
+
+        if keep_all:
+            x_grouped = x_fft.view(
+                batchsize, self.num_groups, self.channels_per_group, *x_fft.shape[2:]
+            )
+            res_grouped = torch.einsum("bgixyz,gioxyz->bgoxyz", x_grouped, self.weight)
+            res_fft = res_grouped.reshape(batchsize, self.out_channels, *res_grouped.shape[3:])
+            out = torch.fft.ifftn(res_fft, dim=(-3, -2, -1))
+            return out.real if not self.complex_data else out
+
         # Symmetric Slicing
         indices_list = []
         for dim, n_mode in enumerate(self.n_modes):
@@ -590,17 +608,17 @@ class EqSpectralConv(SpectralConv):
             if n_mode >= fft_size:
                 indices = torch.arange(fft_size, device=x.device)
             else:
-                k = n_mode // 2 
-                k_pos = k + (n_mode % 2) 
+                k = n_mode // 2
+                k_pos = k + (n_mode % 2)
                 k_neg = k
                 pos_idx = torch.arange(k_pos, device=x.device)
                 neg_idx = torch.arange(fft_size - k_neg, fft_size, device=x.device)
                 indices = torch.cat([pos_idx, neg_idx])
             indices_list.append(indices)
-            
+
         idx_x, idx_y, idx_z = indices_list
         x_fft_sliced = x_fft[:, :, idx_x[:, None, None], idx_y[None, :, None], idx_z[None, None, :]]
-        
+
         # Multiply Weights (Grouped Convolution)
         if self.weight.shape[3:] != x_fft_sliced.shape[2:]:
              raise RuntimeError(f"Weight shape mismatch")
@@ -608,18 +626,18 @@ class EqSpectralConv(SpectralConv):
         # [Reshape for Grouping]
         # Input: (B, C, X, Y, Z) -> (B, Groups, C_in_group, X, Y, Z)
         x_grouped = x_fft_sliced.view(
-            batchsize, self.num_groups, self.channels_per_group, 
+            batchsize, self.num_groups, self.channels_per_group,
             *x_fft_sliced.shape[2:]
         )
-        
+
         # [Grouped Matrix Multiplication]
         # g: groups, i: in_ch_per_group, o: out_ch_per_group
         # Dense matmul within each group only
         res_grouped = torch.einsum(
-            "bgixyz,gioxyz->bgoxyz", 
+            "bgixyz,gioxyz->bgoxyz",
             x_grouped, self.weight
         )
-        
+
         # [Flatten back]
         # (B, Groups, C_out_group, X, Y, Z) -> (B, C, X, Y, Z)
         res_fft = res_grouped.reshape(batchsize, self.out_channels, *res_grouped.shape[3:])
@@ -627,11 +645,11 @@ class EqSpectralConv(SpectralConv):
         # Reconstruction
         target_shape = output_shape if output_shape is not None else mode_sizes
         full_fft_reconstructed = torch.zeros(
-            (batchsize, self.out_channels, *target_shape), 
+            (batchsize, self.out_channels, *target_shape),
             dtype=res_fft.dtype, device=res_fft.device
         )
         full_fft_reconstructed[:, :, idx_x[:, None, None], idx_y[None, :, None], idx_z[None, None, :]] = res_fft
-        
+
         # Inverse FFT
         out = torch.fft.ifftn(full_fft_reconstructed, dim=(-3, -2, -1))
         return out.real if not self.complex_data else out

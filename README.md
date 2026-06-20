@@ -167,6 +167,13 @@ python main.py --config configs/ahmedbody.yaml --aug_type arbitrary --devices 0
 python main.py --config configs/shapenetcar.yaml --devices 0
 ```
 
+## Release Notes
+
+See [`RELEASES.md`](RELEASES.md) for the changelog. The latest release (**v1.1.0**)
+makes training **1.64× faster / 2.47× lighter** and inference **2.87× faster /
+1.79× lighter** with numerically equivalent outputs (no architecture, weight, or
+hyper-parameter changes).
+
 ## Acknowledgement
 
 This project utilizes code from the [neuraloperator](https://github.com/neuraloperator/neuraloperator) library. We have modified specific components to implement the equivariant features required for EqGINO. We thank the authors of `neuralop` for their open-source contribution.

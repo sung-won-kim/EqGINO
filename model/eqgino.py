@@ -6,7 +6,7 @@ from neuralop.models import EqGINO
 from sklearn.metrics import r2_score
 from torch.utils.data import Dataset
 from torch.nn import Linear, Sequential
-from utils import apply_radial_basis, get_rotation_matrix, compute_metrics
+from utils import apply_radial_basis, get_rotation_matrix, compute_metrics, torch_r2
 
 DEEPJEB_LOADS = ['hor', 'ver', 'dia', 'tor']
 
@@ -159,27 +159,36 @@ class EQGINO(pl.LightningModule):
             self.test_preds_dict = {}
             self.test_targets_dict = {}
 
-    def generate_bounding_latent_queries(self, grid_size):
+    def generate_bounding_latent_queries(self, grid_size, device=None):
+
+        # The latent grid is fixed across forward passes (range + resolution are
+        # constant), so build it once on the target device and cache it to avoid
+        # a CPU meshgrid + host->device copy on every step.
+        key = (tuple(grid_size), str(device))
+        cache = getattr(self, "_latent_query_cache", None)
+        if cache is not None and cache[0] == key:
+            return cache[1]
 
         grid_range = self.args.latent_grid_range
         min_val = grid_range[0]
         max_val = grid_range[1]
 
-        x = torch.linspace(min_val, max_val, grid_size[0])
-        y = torch.linspace(min_val, max_val, grid_size[1])
-        z = torch.linspace(min_val, max_val, grid_size[2])
+        x = torch.linspace(min_val, max_val, grid_size[0], device=device)
+        y = torch.linspace(min_val, max_val, grid_size[1], device=device)
+        z = torch.linspace(min_val, max_val, grid_size[2], device=device)
 
         X, Y, Z = torch.meshgrid(x, y, z, indexing="ij")
 
-        latent_queries = torch.stack((X, Y, Z), dim=-1)
+        latent_queries = torch.stack((X, Y, Z), dim=-1).unsqueeze(0)
 
-        return latent_queries.unsqueeze(0)
+        self._latent_query_cache = (key, latent_queries)
+        return latent_queries
 
     def loss(self, pred, labels):
         mae = torch.mean(torch.abs(labels - pred))
         error = torch.sum((labels - pred) ** 2, axis=1)
         loss = torch.sqrt(torch.mean(error))  # RMSE
-        r2 = r2_score(labels.cpu().detach().numpy(), pred.cpu().detach().numpy())
+        r2 = torch_r2(labels, pred)  # on-device R2, avoids per-step GPU->CPU sync
         return loss, mae, r2
 
     def _subsample(self, coord, data, force_dir=None):
@@ -215,8 +224,8 @@ class EQGINO(pl.LightningModule):
     def _single_forward(self, coord, data):
         """Single operator forward pass (shared logic)."""
         latent_queries = self.generate_bounding_latent_queries(
-            (self.fno_n_mode, self.fno_n_mode, self.fno_n_mode)
-        ).to(coord.device)
+            (self.fno_n_mode, self.fno_n_mode, self.fno_n_mode), device=coord.device
+        )
 
         cond_feat = data.conds_feat[0, :].unsqueeze(0)
         latent_feature_dim = cond_feat.shape[1]

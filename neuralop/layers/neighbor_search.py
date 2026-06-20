@@ -9,6 +9,16 @@ try:
 except:
     pass
 
+# torch_cluster provides a bucketed GPU radius search that avoids the
+# O(num_queries x num_data) dense distance matrix used by the cdist fallback.
+# When available it is the preferred backend for `native_neighbor_search`.
+torch_cluster_built = False
+try:
+    from torch_cluster import radius as _tc_radius
+    torch_cluster_built = True
+except Exception:
+    pass
+
 # Uses open3d by default which, as of October 2024, requires torch 2.0 and cuda11.*
 class NeighborSearch(nn.Module):
     """
@@ -102,7 +112,56 @@ class NeighborSearch(nn.Module):
 #     nbr_dict['neighbors_row_splits'] = splits.long()
 #     return nbr_dict
 
+def _torch_cluster_neighbor_search(data: torch.Tensor, queries: torch.Tensor, radius: float):
+    """Radius neighbor search via torch_cluster (bucketed, GPU-native).
+
+    Returns the same CRS dict as `native_neighbor_search`. Falls back to the
+    dense cdist path if the per-query neighbor cap would truncate results
+    (guaranteeing identical neighbor sets in that rare case).
+    """
+    device = queries.device
+    num_queries = queries.shape[0]
+    num_data = data.shape[0]
+
+    # torch_cluster.radius(x, y, r) returns, for every point in y (queries),
+    # the indices of points in x (data) within distance r. assign[0] indexes
+    # queries, assign[1] indexes data. The per-query result is capped at
+    # `max_num_neighbors`; grow the cap on saturation, fall back if it gets
+    # implausibly large (keeps memory bounded and results exact).
+    max_neighbors = 256
+    while True:
+        assign = _tc_radius(data, queries, radius, max_num_neighbors=max_neighbors)
+        row, col = assign[0], assign[1]
+        counts = torch.bincount(row, minlength=num_queries)
+        if counts.numel() == 0 or int(counts.max()) < max_neighbors:
+            break  # no query hit the cap -> nothing truncated
+        if max_neighbors >= num_data or max_neighbors > 65536:
+            # cap already covers everything possible -> use dense fallback for safety
+            return _cdist_neighbor_search(data, queries, radius)
+        max_neighbors = min(max_neighbors * 4, num_data)
+
+    # Order edges by query index so neighbors are grouped in CRS order.
+    order = torch.argsort(row, stable=True)
+    nbr_indices = col[order].long()
+    splits = torch.cat((
+        torch.zeros(1, device=device, dtype=torch.long),
+        torch.cumsum(counts, dim=0),
+    ))
+    return {'neighbors_index': nbr_indices, 'neighbors_row_splits': splits.long()}
+
+
 def native_neighbor_search(data: torch.Tensor, queries: torch.Tensor, radius: float):
+    """Radius neighbor search returning a CRS 'nbr_dict'.
+
+    Prefers torch_cluster (bucketed, fast) on CUDA tensors; otherwise uses the
+    memory-efficient batched-cdist implementation.
+    """
+    if torch_cluster_built and data.is_cuda and queries.is_cuda:
+        return _torch_cluster_neighbor_search(data, queries, radius)
+    return _cdist_neighbor_search(data, queries, radius)
+
+
+def _cdist_neighbor_search(data: torch.Tensor, queries: torch.Tensor, radius: float):
     """
     Memory-efficient PyTorch implementation with batching.
     Returns a 'nbr_dict' with the same structure as the original function.

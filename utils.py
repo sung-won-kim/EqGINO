@@ -71,6 +71,26 @@ def get_rotation_matrix(mode, device='cpu'):
     return torch.tensor(matrix, device=device, dtype=torch.float32)
 
     
+def torch_r2(targets, pred):
+    """GPU R2 score matching sklearn's `multioutput='uniform_average'`.
+
+    Avoids the per-step GPU->CPU sync + numpy round-trip incurred by
+    sklearn.metrics.r2_score, which otherwise stalls the CUDA pipeline on
+    every training/validation step.
+    """
+    if targets.ndim == 1:
+        targets = targets.unsqueeze(1)
+        pred = pred.unsqueeze(1)
+    ss_res = ((targets - pred) ** 2).sum(dim=0)
+    ss_tot = ((targets - targets.mean(dim=0, keepdim=True)) ** 2).sum(dim=0)
+    nonzero = ss_tot != 0
+    r2 = torch.ones_like(ss_tot)
+    r2 = torch.where(nonzero, 1 - ss_res / ss_tot.clamp_min(1e-12), r2)
+    # constant-target outputs: perfect fit -> 1.0, otherwise 0.0 (sklearn rule)
+    r2 = torch.where((~nonzero) & (ss_res != 0), torch.zeros_like(r2), r2)
+    return r2.mean()
+
+
 def compute_metrics(pred, targets, batch_index=None):
     """
     Calculates MSE, MAE, RMSE, Max AE, Rel L2, Rel L1, R2.
@@ -120,9 +140,9 @@ def compute_metrics(pred, targets, batch_index=None):
         target_norm_l1 = torch.norm(targets, p=1, dim=1)
         rel_l1 = torch.mean(err_norm_l1 / (target_norm_l1 + 1e-8))
 
-    # 4. R2 Score (CPU calculation via sklearn)
+    # 4. R2 Score (computed on-device to avoid a GPU->CPU sync per step)
     try:
-        r2 = r2_score(targets.detach().cpu().numpy(), pred.detach().cpu().numpy())
+        r2 = torch_r2(targets, pred)
     except:
         r2 = 0.0 # Handle edge cases (e.g. batch size 1 or constant target)
 

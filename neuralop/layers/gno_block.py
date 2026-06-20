@@ -2,6 +2,7 @@ from typing import List
 
 
 import torch
+import torch.utils.checkpoint
 from torch import nn
 import torch.nn.functional as F
 
@@ -254,13 +255,17 @@ class EqGNOBlock(nn.Module):
                  channel_mlp_non_linearity=F.gelu, # other
                  channel_mlp: nn.Module=None, # other
                  use_open3d_neighbor_search: bool=True, # other
-                 use_torch_scatter_reduce: bool=True,): # other
+                 use_torch_scatter_reduce: bool=True, # other
+                 use_checkpoint: bool=True,): # other
         super().__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.coord_dim = coord_dim
         self.dist_dim = 1  # for radial distance
+        # Gradient-checkpoint the (memory-heavy) edge-wise kernel integral so its
+        # per-edge activations are recomputed in backward instead of stored.
+        self.use_checkpoint = use_checkpoint
 
         self.radius = radius
 
@@ -318,13 +323,60 @@ class EqGNOBlock(nn.Module):
             use_torch_scatter=use_torch_scatter_reduce
         )
 
+    # target number of edges (neighbor pairs) processed per chunk during the
+    # checkpointed kernel integral; bounds peak edge-activation memory.
+    chunk_target_edges = 200_000
+
     def forward(self, y, x, f_y=None, reduction='sum'):
         neighbors_dict = self.neighbor_search(data=y, queries=x, radius=self.radius)
 
-        out_features = self.integral_transform(y=y,
-                                               x=x,
-                                               neighbors=neighbors_dict,
-                                               f_y=f_y,
-                                               pos_embedding_func=self.pos_embedding)
-        
-        return out_features
+        if not self.use_checkpoint:
+            return self.integral_transform(y=y, x=x, neighbors=neighbors_dict,
+                                           f_y=f_y, pos_embedding_func=self.pos_embedding)
+
+        # ---- Chunked kernel integral ----
+        # Each query row's neighborhood is integrated independently, so we split
+        # the queries into chunks and concatenate the outputs. This caps the
+        # transient per-edge activation memory (both train and inference). When
+        # grad is enabled, each chunk is checkpointed so its activations are
+        # recomputed in backward instead of retained; under no_grad the
+        # checkpoint call is a transparent passthrough. The result is bit-
+        # identical to the un-chunked path.
+        splits = neighbors_dict["neighbors_row_splits"]
+        index = neighbors_dict["neighbors_index"]
+        n_queries = x.shape[0]
+        total_edges = int(index.shape[0])
+
+        if total_edges == 0:
+            return self.integral_transform(y=y, x=x, neighbors=neighbors_dict,
+                                           f_y=f_y, pos_embedding_func=self.pos_embedding)
+
+        # choose a query-chunk size so each chunk holds ~chunk_target_edges edges
+        avg_edges = max(1, total_edges // max(1, n_queries))
+        chunk_q = max(1, self.chunk_target_edges // avg_edges)
+        if chunk_q >= n_queries:
+            # single chunk: just checkpoint the whole transform
+            def _run(x_in, f_in):
+                return self.integral_transform(y=y, x=x_in, neighbors=neighbors_dict,
+                                               f_y=f_in, pos_embedding_func=self.pos_embedding)
+            return torch.utils.checkpoint.checkpoint(_run, x, f_y, use_reentrant=False)
+
+        splits_cpu = splits.tolist()  # single host sync, then pure-python slicing
+        outs = []
+        for qa in range(0, n_queries, chunk_q):
+            qb = min(qa + chunk_q, n_queries)
+            es, ee = splits_cpu[qa], splits_cpu[qb]
+            sub_nb = {
+                "neighbors_index": index[es:ee],
+                "neighbors_row_splits": splits[qa:qb + 1] - splits[qa],
+            }
+
+            def _run(x_in, f_in, _nb=sub_nb):
+                return self.integral_transform(y=y, x=x_in, neighbors=_nb,
+                                               f_y=f_in, pos_embedding_func=self.pos_embedding)
+
+            outs.append(torch.utils.checkpoint.checkpoint(
+                _run, x[qa:qb], f_y, use_reentrant=False))
+
+        # query dim is -2 for both batched [B, q, d] and unbatched [q, d] outputs
+        return torch.cat(outs, dim=-2)
