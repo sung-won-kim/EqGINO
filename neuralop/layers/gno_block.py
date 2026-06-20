@@ -362,10 +362,19 @@ class EqGNOBlock(nn.Module):
             return torch.utils.checkpoint.checkpoint(_run, x, f_y, use_reentrant=False)
 
         splits_cpu = splits.tolist()  # single host sync, then pure-python slicing
+        batched = (f_y is not None and f_y.ndim == 3)
+        out_ch = f_y.shape[-1] if f_y is not None else self.out_channels
         outs = []
         for qa in range(0, n_queries, chunk_q):
             qb = min(qa + chunk_q, n_queries)
             es, ee = splits_cpu[qa], splits_cpu[qb]
+            if ee == es:
+                # every query in this chunk has no neighbors -> zero rows
+                # (matches the mean-over-empty-neighborhood of the dense path)
+                q = qb - qa
+                shape = (f_y.shape[0], q, out_ch) if batched else (q, out_ch)
+                outs.append(f_y.new_zeros(shape))
+                continue
             sub_nb = {
                 "neighbors_index": index[es:ee],
                 "neighbors_row_splits": splits[qa:qb + 1] - splits[qa],
