@@ -10,7 +10,7 @@
 <!--     <img src="https://img.shields.io/pypi/l/torch-rechub"> -->
 </p>
 
-Official code repository for **EqGINO** (Equivariant Geometry-Informed Fourier Neural Operator for 3D PDEs) at ICML 2026.
+Official code repository for **EqGINO** (Equivariant Geometry-Informed Fourier Neural Operator for 3D PDEs) at ICML 2026. [[paper]](https://arxiv.org/abs/2606.03260)
 
 
 ## Requirements
